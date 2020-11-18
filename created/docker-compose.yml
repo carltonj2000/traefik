@@ -1,0 +1,52 @@
+version: "3"
+
+services:
+  traefik:
+    image: traefik:v2.3
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt/acme.json:/acme.json
+      - ./traefik.yml:/etc/traefik/traefik.yml
+    environment:
+      - "DO_AUTH_TOKEN="
+
+  catapp:
+    image: mikesir87/cats:1.0
+    labels:
+      - "traefik.enable=true"
+      # Router
+      - "traefik.http.routers.catapp.rule=Host(`apps4tracking.com`)"
+      - "traefik.http.routers.catapp.entrypoints=web"
+      - "traefik.http.routers.catapp.middlewares=test-redirectscheme"
+      - "traefik.http.routers.catapp-secure.rule=Host(`apps4tracking.com`)"
+      - "traefik.http.routers.catapp-secure.service=catapp-secure"
+      - "traefik.http.routers.catapp-secure.entrypoints=websecure"
+      - "traefik.http.routers.catapp-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.catapp-secure.middlewares=test-auth,test-compress,test-errorpages,test-ratelimit"
+      # Service
+      - "traefik.http.services.catapp-secure.loadbalancer.server.port=5000"
+      # Middleware
+      - "traefik.http.middlewares.test-auth.basicauth.users=traefik:$$apr1$$.zPbdVg8$$LcHeyCZElH.JfxkxxlMPI.,user2:$$apr1$$XDrP1Fb1$$SZqSEjvNYW44vgJgI3iEP0"
+      - "traefik.http.middlewares.test-compress.compress=true"
+      # Error Pages Middleware
+      - "traefik.http.middlewares.test-errorpages.errors.status=400-599"
+      - "traefik.http.middlewares.test-errorpages.errors.service=error"
+      - "traefik.http.middlewares.test-errorpages.errors.query=/{status}.html"
+      # Rate Limit Middleware
+      - "traefik.http.middlewares.test-ratelimit.ratelimit.average=2"
+      # Redirect Scheme HTTP -> HTTPS
+      - "traefik.http.middlewares.test-redirectscheme.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.test-redirectscheme.redirectscheme.permanent=true"
+
+  error:
+    image: guillaumebriday/traefik-custom-error-pages
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.error.rule=Host(`error.apps4tracking.com`)"
+      - "traefik.http.routers.error.service=error"
+      - "traefik.http.services.error.loadbalancer.server.port=80"
+      - "traefik.http.routers.error.entrypoints=web"
