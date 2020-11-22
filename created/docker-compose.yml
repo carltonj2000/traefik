@@ -12,7 +12,7 @@ services:
       - ./letsencrypt/acme.json:/acme.json
       - ./traefik.yml:/etc/traefik/traefik.yml
     environment:
-      - "DO_AUTH_TOKEN="
+      - "DO_AUTH_TOKEN=${DO_AUTH_TOKEN}"
 
   catapp:
     image: mikesir87/cats:1.0
